@@ -105,7 +105,6 @@ impl Reader {
         let slice = self.read_slice(N)?;
         let mut array = [0u8; N];
         array.copy_from_slice(slice);
-        self.increment(N);
         Ok(array)
     }
 }
@@ -162,4 +161,8 @@ fn static_slice_test() {
     assert_eq!(&[1,2,3,4,5], &*reader.read_bytes(5).unwrap());
     assert_eq!(&[6,7,8,9,10], reader.read_slice(5).unwrap());
     assert_eq!(&[11,12,13,14,15], &reader.read_array::<5>().unwrap());
+
+    assert_eq!(reader.consumed(), 15);
+    assert_eq!(reader.remaining(), 5);
+    assert!(reader.has_remaining(5));
 }
