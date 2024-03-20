@@ -1,0 +1,15 @@
+[package]
+name = "unbytes"
+version = "0.1.0"
+edition = "2021"
+authors=["Veritius <veritiusgaming@gmail.com>"]
+license="MIT OR Apache-2.0"
+description="Panic-free reading of bytes."
+repository="https://github.com/veritius/unbytes"
+
+[dependencies]
+bytes = "1.5"
+
+[features]
+default = []
+std = []
