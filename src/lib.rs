@@ -2,6 +2,7 @@
 #![cfg_attr(not(feature="std"), no_std)]
 #![warn(missing_docs)]
 
+use core::ops::Add;
 #[cfg(feature="std")]
 use std::{error::Error, fmt::Display};
 
@@ -26,6 +27,11 @@ impl Reader {
         }
     }
 
+    #[inline]
+    fn increment(&mut self, amt: usize) {
+        self.index = self.index.add(amt).min(self.inner.len())
+    }
+
     /// Returns how many bytes have not been read.
     #[inline]
     pub fn remaining(&self) -> usize {
@@ -46,7 +52,7 @@ impl Reader {
 
     /// Skips `amt` bytes.
     pub fn skip(&mut self, amt: usize) {
-        self.index = (self.index + amt).max(self.inner.len())
+        self.increment(amt)
     }
 
     /// Returns `true` if there is another byte to read and it is equal to `val`.
@@ -80,14 +86,18 @@ impl Reader {
     /// Returns the next `len` bytes as a [`Bytes`], advancing the cursor.
     pub fn read_bytes(&mut self, len: usize) -> Result<Bytes, EndOfInput> {
         if !self.has_remaining(len) { return Err(EndOfInput); }
-        Ok(self.inner.slice(self.index..self.index+len))
+        let old_idx = self.index;
+        self.increment(len);
+        Ok(self.inner.slice(old_idx..old_idx+len))
     }
 
     /// Returns the next `len` bytes as a slice, advancing the cursor.
     /// The returned slice will always be of length `len`.
     pub fn read_slice(&mut self, len: usize) -> Result<&[u8], EndOfInput> {
         if !self.has_remaining(len) { return Err(EndOfInput); }
-        Ok(&self.inner[self.index..self.index+len])
+        let old_idx = self.index;
+        self.increment(len);
+        Ok(&self.inner[old_idx..old_idx+len])
     }
 
     /// Returns an array of size `N`, advancing the cursor.
@@ -95,6 +105,7 @@ impl Reader {
         let slice = self.read_slice(N)?;
         let mut array = [0u8; N];
         array.copy_from_slice(slice);
+        self.increment(N);
         Ok(array)
     }
 }
@@ -132,3 +143,23 @@ impl Display for EndOfInput {
 
 #[cfg(feature="std")]
 impl Error for EndOfInput {}
+
+#[test]
+fn static_slice_test() {
+    let slice: &'static [u8; 20] = &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+    let bytes = Bytes::from_static(slice);
+
+    let mut reader = Reader::new(bytes.clone());
+    assert_eq!(slice, &*reader.read_bytes(20).unwrap());
+
+    let mut reader = Reader::new(bytes.clone());
+    assert_eq!(slice, reader.read_slice(20).unwrap());
+
+    let mut reader = Reader::new(bytes.clone());
+    assert_eq!(slice, &reader.read_array::<20>().unwrap());
+
+    let mut reader = Reader::new(bytes.clone());
+    assert_eq!(&[1,2,3,4,5], &*reader.read_bytes(5).unwrap());
+    assert_eq!(&[6,7,8,9,10], reader.read_slice(5).unwrap());
+    assert_eq!(&[11,12,13,14,15], &reader.read_array::<5>().unwrap());
+}
