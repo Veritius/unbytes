@@ -1,5 +1,4 @@
-//! Ergonomic, panic-free forward-only cursors, based on `bytes`.
-
+#![doc=include_str!("../README.md")]
 #![cfg_attr(not(feature="std"), no_std)]
 #![warn(missing_docs)]
 
@@ -10,7 +9,7 @@ use bytes::*;
 
 static EMPTY_SLICE: &[u8] = &[];
 
-/// Panic-free forward-only cursor. Will never panic.
+/// Panic-free forward-only cursor. See the [module level docs][crate].
 pub struct Reader {
     index: usize,
     inner: Bytes,
@@ -40,6 +39,7 @@ impl Reader {
     }
 
     /// Returns how many bytes have been read so far.
+    #[inline]
     pub fn consumed(&self) -> usize {
         self.index
     }
@@ -49,7 +49,7 @@ impl Reader {
         self.index = (self.index + amt).max(self.inner.len())
     }
 
-    /// Returns `true` 
+    /// Returns `true` if there is another byte to read and it is equal to `val`.
     pub fn peek(&self, val: u8) -> bool {
         if !self.has_remaining(1) { return false; }
         self.inner[self.index + 1] == val
@@ -68,6 +68,15 @@ impl Reader {
         self.inner.slice(self.index..)
     } 
 
+    /// Returns a `Reader` that can read the next `len` bytes,
+    /// advancing the original cursor by the same amount.
+    /// 
+    /// If `len` is zero, [`EndOfInput`] will be returned.
+    pub fn subreader(&mut self, len: usize) -> Result<Self, EndOfInput> {
+        if len == 0 { return Err(EndOfInput); }
+        Ok(Self::new(self.read_bytes(len)?))
+    }
+
     /// Returns the next `len` bytes as a [`Bytes`], advancing the cursor.
     pub fn read_bytes(&mut self, len: usize) -> Result<Bytes, EndOfInput> {
         if !self.has_remaining(len) { return Err(EndOfInput); }
@@ -75,6 +84,7 @@ impl Reader {
     }
 
     /// Returns the next `len` bytes as a slice, advancing the cursor.
+    /// The returned slice will always be of length `len`.
     pub fn read_slice(&mut self, len: usize) -> Result<&[u8], EndOfInput> {
         if !self.has_remaining(len) { return Err(EndOfInput); }
         Ok(&self.inner[self.index..self.index+len])
