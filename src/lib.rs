@@ -2,6 +2,8 @@
 #![cfg_attr(not(feature="std"), no_std)]
 #![warn(missing_docs)]
 
+mod ints;
+
 use core::ops::Add;
 #[cfg(feature="std")]
 use std::{error::Error, fmt::Display};
@@ -76,11 +78,17 @@ impl Reader {
 
     /// Returns a `Reader` that can read the next `len` bytes,
     /// advancing the original cursor by the same amount.
-    /// 
-    /// If `len` is zero, [`EndOfInput`] will be returned.
     pub fn subreader(&mut self, len: usize) -> Result<Self, EndOfInput> {
         if len == 0 { return Err(EndOfInput); }
         Ok(Self::new(self.read_bytes(len)?))
+    }
+
+    /// Reads a single byte. Identical to [`read_u8`](Self::read_u8).
+    pub fn read_byte(&mut self) -> Result<u8, EndOfInput> {
+        if !self.has_remaining(1) { return Err(EndOfInput); }
+        let r = self.inner[self.index];
+        self.increment(1);
+        return Ok(r);
     }
 
     /// Returns the next `len` bytes as a [`Bytes`], advancing the cursor.
@@ -161,8 +169,9 @@ fn static_slice_test() {
     assert_eq!(&[1,2,3,4,5], &*reader.read_bytes(5).unwrap());
     assert_eq!(&[6,7,8,9,10], reader.read_slice(5).unwrap());
     assert_eq!(&[11,12,13,14,15], &reader.read_array::<5>().unwrap());
+    assert_eq!(16, reader.read_u8().unwrap());
 
-    assert_eq!(reader.consumed(), 15);
-    assert_eq!(reader.remaining(), 5);
-    assert!(reader.has_remaining(5));
+    assert_eq!(reader.consumed(), 16);
+    assert_eq!(reader.remaining(), 4);
+    assert!(reader.has_remaining(4));
 }
