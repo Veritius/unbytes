@@ -2,7 +2,8 @@
 #![cfg_attr(not(feature="std"), no_std)]
 #![warn(missing_docs)]
 
-mod ints;
+#[cfg(feature="maypanic")]
+mod maypanic;
 
 use core::ops::Add;
 #[cfg(feature="std")]
@@ -10,7 +11,8 @@ use std::{error::Error, fmt::Display};
 
 use bytes::*;
 
-static EMPTY_SLICE: &[u8] = &[];
+#[cfg(feature="maypanic")]
+pub use maypanic::ReaderMayPanic;
 
 /// Panic-free forward-only cursor. See the [module level docs][crate].
 pub struct Reader {
@@ -42,7 +44,7 @@ impl Reader {
 
     /// Returns `true` if at least `len` many bytes are unread.
     #[inline]
-    pub fn has_remaining(&self, len: usize) -> bool {
+    pub fn at_least(&self, len: usize) -> bool {
         self.remaining() >= len
     }
 
@@ -59,7 +61,7 @@ impl Reader {
 
     /// Returns `true` if there is another byte to read and it is equal to `val`.
     pub fn peek(&self, val: u8) -> bool {
-        if !self.has_remaining(1) { return false; }
+        if !self.at_least(1) { return false; }
         self.inner[self.index + 1] == val
     }
 
@@ -70,7 +72,7 @@ impl Reader {
     /// instead returning a Bytes pointing to a static, empty slice.
     pub fn read_to_end(self) -> Bytes {
         if self.index == self.inner.len() {
-            return Bytes::from_static(EMPTY_SLICE)
+            return Bytes::new()
         }
 
         self.inner.slice(self.index..)
@@ -85,7 +87,7 @@ impl Reader {
 
     /// Reads a single byte. Identical to [`read_u8`](Self::read_u8).
     pub fn read_byte(&mut self) -> Result<u8, EndOfInput> {
-        if !self.has_remaining(1) { return Err(EndOfInput); }
+        if !self.at_least(1) { return Err(EndOfInput); }
         let r = self.inner[self.index];
         self.increment(1);
         return Ok(r);
@@ -93,7 +95,7 @@ impl Reader {
 
     /// Returns the next `len` bytes as a [`Bytes`], advancing the cursor.
     pub fn read_bytes(&mut self, len: usize) -> Result<Bytes, EndOfInput> {
-        if !self.has_remaining(len) { return Err(EndOfInput); }
+        if !self.at_least(len) { return Err(EndOfInput); }
         let old_idx = self.index;
         self.increment(len);
         Ok(self.inner.slice(old_idx..old_idx+len))
@@ -102,7 +104,7 @@ impl Reader {
     /// Returns the next `len` bytes as a slice, advancing the cursor.
     /// The returned slice will always be of length `len`.
     pub fn read_slice(&mut self, len: usize) -> Result<&[u8], EndOfInput> {
-        if !self.has_remaining(len) { return Err(EndOfInput); }
+        if !self.at_least(len) { return Err(EndOfInput); }
         let old_idx = self.index;
         self.increment(len);
         Ok(&self.inner[old_idx..old_idx+len])
@@ -169,9 +171,9 @@ fn static_slice_test() {
     assert_eq!(&[1,2,3,4,5], &*reader.read_bytes(5).unwrap());
     assert_eq!(&[6,7,8,9,10], reader.read_slice(5).unwrap());
     assert_eq!(&[11,12,13,14,15], &reader.read_array::<5>().unwrap());
-    assert_eq!(16, reader.read_u8().unwrap());
+    assert_eq!(16, reader.read_byte().unwrap());
 
     assert_eq!(reader.consumed(), 16);
     assert_eq!(reader.remaining(), 4);
-    assert!(reader.has_remaining(4));
+    assert!(reader.at_least(4));
 }

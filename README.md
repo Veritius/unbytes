@@ -10,3 +10,4 @@ Note that implementations involving the `bytes` crate *can* allocate. Traits lik
 
 The following feature flags are available, but none are enabled by default.
 - `std`: Standard library support, like an `std::io::Read` implementation.
+- `maypanic`: Functionality that **may** panic if used improperly, like a `Buf` implementation.
