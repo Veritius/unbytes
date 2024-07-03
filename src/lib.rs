@@ -2,6 +2,8 @@
 #![cfg_attr(not(feature="std"), no_std)]
 #![warn(missing_docs)]
 
+mod decode;
+
 #[cfg(feature="maypanic")]
 mod maypanic;
 
@@ -10,6 +12,8 @@ use core::ops::Add;
 use std::{error::Error, fmt::Display};
 
 use bytes::*;
+
+pub use decode::{Decode, DecodeEndian};
 
 #[cfg(feature="maypanic")]
 pub use maypanic::ReaderMayPanic;
@@ -116,6 +120,18 @@ impl Reader {
         let mut array = [0u8; N];
         array.copy_from_slice(slice);
         Ok(array)
+    }
+
+    /// Attempts to read a value based on its `Decode` implementation.
+    pub fn read<T: Decode>(&mut self) -> Result<T, EndOfInput> {
+        T::decode(self)
+    }
+}
+
+impl AsMut<Reader> for Reader {
+    #[inline(always)]
+    fn as_mut(&mut self) -> &mut Reader {
+        self
     }
 }
 
